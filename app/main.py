@@ -10,6 +10,7 @@ import pymongo
 from pymongo import MongoClient
 import dns
 
+
 app = Flask(__name__)
 url = 'https://api.smsapi.com/sms.do'
 
@@ -170,6 +171,13 @@ def import_database_from_excel(filepath):
         serial_collection = db.SERIALS
         document_insertion = serial_collection.insert_one(document).inserted_id
 
+@app.route('/stress')
+def stress_test():
+    import math
+    while True:
+        math.factorial(1000)  
+ 
+    
 
 
 
