@@ -54,7 +54,7 @@ class User(UserMixin):
 user = User(0)
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/admin', methods=['GET', 'POST'])
 @login_required
 
 def home():
@@ -76,6 +76,7 @@ def home():
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
+            import_database_from_excel(file_path)
             # import_database_from_excel(file_path)
             # flash('Data Imported')
             # os.remove(file_path)
@@ -83,7 +84,23 @@ def home():
 
     return render_template("index.html")
 
+#new section
+@app.route('/', methods=['GET', 'POST'])
+def check():
+    if request.method == 'POST':
+        serialnum = request.form['SerialNum']
+        phonenum = request.form['PhoneNum']
 
+        result = db.SERIALS.find_one({"serial": int(serialnum)})
+        if result:
+            send_sms(str(phonenum),f"{serialnum} is valid !")
+            print(phonenum, "valid")
+        else:
+            send_sms(str(phonenum),f"{serialnum} is NOT valid !")
+            print(phonenum, "NOT valid")  
+       
+    return render_template("check.html")
+#end
 
 
 @app.route('/mainpage')
@@ -100,7 +117,7 @@ def login():
         password = request.form['password']        
         if password == PASSWORD and username == USERNAME:
             login_user(user)
-            return redirect('/')
+            return redirect('/admin')
         else:
             return abort(401)
     else:
@@ -139,56 +156,19 @@ def send_sms(sender, msg):
     requests.post(url, params=params, headers=headers)
 
 
-
-def normalize_str(data):
-    # we don't need it
-    pass
-
-
-
-
 def import_database_from_excel(filepath): 
     """ reading file with proper format and inserting into mongodb Atlas """
 
-    df = pd.read_excel(filepath, 0)
-    for index, (desc, serial, date) in df.iterrows():
+    df = pd.read_csv(filepath)
+    db.SERIALS.remove()
+    for index, row in df.iterrows():
         document = {"_id":index,
-         "desc": desc,
-         "serial": serial,
-         "date": date}
+         "desc": row["desc"],
+         "serial": row["serial"],
+         "date": row["date"]}
 
         serial_collection = db.SERIALS
         document_insertion = serial_collection.insert_one(document).inserted_id
-
-
-def check_serial(serial):
-    """ will get a serial number and return the answer"""
-    result = db.SERIALS.find_one({"serial": int(serial)})
-    print(result)
-
-    if len(result) == 4:
-        return 'your serial were found !'
-
-    return 'it was not in the db'
-
-
-
-def process():
-    # this function gets sender and message and then check whether if it's correct or not
-    # should be edited 
-
-    data = request.form
-    sender = data['from']
-
-    print(f'recieved {data["message"]} from {sender}') 
-
-    answer = check_serial(data["message"])
-
-    send_sms(sender, answer)
-
-    ret = {"message": "processed"}
-    return jsonify(ret), 200
-
 
 
 
@@ -196,6 +176,6 @@ def process():
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
-    import_database_from_excel('tmp/data.xlsx')
+    # import_database_from_excel('tmp/data.xlsx')
 
        
